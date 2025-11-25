@@ -1,21 +1,21 @@
 /**
- * Извлекает сырые данные сообщения: автора, временную метку и полный HTML-контент.
- * @param {HTMLElement} messageElement Элемент сообщения.
- * @returns {object | null} Объект с данными или null, если сообщение пустое.
+ * Extracts raw message data: author, timestamp, and full HTML content.
+ * @param {HTMLElement} messageElement The message element.
+ * @returns {object | null} An object with data or null if the message is empty.
  */
 function extractRawMessageData(messageElement) {
-    // 1. Автор
+    // Author
     const authorEl = messageElement.querySelector('[data-qa="message_sender_name"]');
     const author = authorEl ? authorEl.textContent.trim() : null;
 
-    // 2. Временная метка (полная)
+    // Timestamp (full)
     const timestampEl = messageElement.querySelector('[data-ts]');
     let timestamp = 0;
     if (timestampEl) {
         timestamp = timestampEl.getAttribute('data-ts');
     }
 
-    // 3. Сырой HTML-контент
+    // Raw HTML content
     const textContainer = messageElement.querySelector('[data-qa="message-text"]');
     if (!textContainer) return null;
 
@@ -41,50 +41,12 @@ function extractRawMessageData(messageElement) {
     };
 }
 
-/**
- * Очищает сырой HTML, заменяя прикрепленные файлы/изображения на [file].
- * @param {string} rawHtml Сырой HTML-контент сообщения.
- * @returns {string} Очищенный HTML-контент.
- */
-function cleanAndFormatData(rawHtml) {
-    let cleanHtml = rawHtml;
-
-    // 1. Замена прикрепленных файлов, изображений и вложений на [file]
-    // Ищем контейнеры вложений, файлов и изображений Slack
-    const fileSelectors = [
-        // Контейнер для прикрепленных файлов/документов
-        '.c-message_attachment_container',
-        // Контейнер для файлов (включая изображения)
-        '.c-message__files_container',
-        // Контейнер для встраиваемого видео
-        '.c-message__video_container',
-        // Контейнер для встроенных ссылок с превью
-        '.c-message_attachment'
-    ];
-
-    // Используем временный контейнер для парсинга HTML и манипуляции DOM
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = rawHtml;
-
-    fileSelectors.forEach(selector => {
-        const elementsToReplace = tempDiv.querySelectorAll(selector);
-        elementsToReplace.forEach(el => {
-            // Заменяем элемент на текст [file]
-            el.outerHTML = ' [file] ';
-        });
-    });
-
-    cleanHtml = tempDiv.innerHTML.trim();
-
-    return cleanHtml;
-}
-
 function formatToMarkdown(messageText) {
-    // перенос строки
+    // line break
     messageText = messageText.replace(/<br\s*[^>]*\/?>/gi, '\n');
-    // очистка тегов
+    // clear tags
     messageText = messageText.replace(/<[^>]*>/g, '');
-    // ??
+
     messageText = messageText.trim().replace(/\n\s*\n/g, '\n\n').replace(/\s\s+/g, ' ');
 
     return messageText;
@@ -112,10 +74,10 @@ function formatDateTime(date) {
 }
 
 /**
- * Обработчик клика по кнопке экспорта.
+ * Click handler for the export button.
  */
 function handleExportClick() {
-    // 1. Получаем количество сообщений
+    // Get the number of messages
     const countInput = document.getElementById('message-count-input');
     let count = parseInt(countInput ? countInput.value : '100', 10);
 
@@ -123,16 +85,16 @@ function handleExportClick() {
         count = 100;
     }
 
-    // 2. Находим сообщения
+    // Find the messages
     const messagesContainer = document.querySelector('.c-virtual_list__scroll_container[role="presentation"]');
     if (!messagesContainer) {
-        alert("Не удалось найти контейнер сообщений. Убедитесь, что вы находитесь в активном диалоге.");
+        alert("Could not find the message container. Make sure you are in an active conversation.");
         return;
     }
 
     const allMessageElements = messagesContainer.querySelectorAll('[data-qa="message_container"]');
     if (allMessageElements.length === 0) {
-        alert("Сообщения не найдены.");
+        alert("Messages not found.");
         return;
     }
 
@@ -170,13 +132,13 @@ function handleExportClick() {
     }
 
     if (markdownContent === '') {
-        alert("Не удалось извлечь текстовые сообщения для экспорта.");
+        alert("Could not extract text messages for export.");
         return;
     }
 
-    // 4. Создание и скачивание файла
+    // Create and download the file
     const channelTitle = document.title.replace(' | Slack', '').trim();
-    const header = `# Экспорт диалога: ${channelTitle} \n\n (Последние ${exportedCount} сообщений)\n\n---\n\n`;
+    const header = `# Conversation Export: ${channelTitle} \n\n (Last ${exportedCount} messages)\n\n---\n\n`;
     const finalContent = header + markdownContent;
 
     const blob = new Blob([finalContent], {type: 'text/markdown;charset=utf-8'});
@@ -192,11 +154,11 @@ function handleExportClick() {
     document.body.removeChild(downloadLink);
     URL.revokeObjectURL(url);
 
-    alert(`Экспорт завершен! Скачан файл "${fileName}" с ${exportedCount} сообщениями.`);
+    alert(`Export complete! Downloaded file "${fileName}" with ${exportedCount} messages.`);
 }
 
 /**
- * Вставляет поле ввода и кнопку экспорта в заголовок канала.
+ * Inserts the input field and export button into the channel header.
  */
 function insertExportButton() {
     const targetContainer = document.querySelector('[data-qa="huddle_channel_header_button"]');
@@ -207,28 +169,28 @@ function insertExportButton() {
 
     if (document.getElementById('slack-exporter-controls')) return;
 
-    // Контейнер для элементов управления
+    // Container for controls
     const controlsContainer = document.createElement('div');
     controlsContainer.id = 'slack-exporter-controls';
 
-    // Поле ввода количества
+    // Count input field
     const countInput = document.createElement('input');
     countInput.id = 'message-count-input';
     countInput.type = 'number';
     countInput.min = '1';
-    countInput.value = '100'; // Значение по умолчанию
-    countInput.title = 'Количество сообщений для экспорта (по умолчанию: 100)';
+    countInput.value = '100'; // Default value
+    countInput.title = 'Number of messages to export (default: 100)';
 
-    // Кнопка экспорта
+    // Export button
     const exportButton = document.createElement('button');
     exportButton.id = 'markdown-export-btn';
-    exportButton.title = 'Экспортировать последние N сообщений в Markdown';
+    exportButton.title = 'Export last N messages to Markdown';
 
     exportButton.innerHTML = `
         <svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 9H5c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2zM5 11h14v6H5v-6zm14-8H5c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 5h14v2H5V5z"/>
         </svg>
-        <span>Экспорт MD</span>
+        <span>Export MD</span>
     `;
 
     exportButton.addEventListener('click', handleExportClick);
@@ -236,17 +198,17 @@ function insertExportButton() {
     controlsContainer.appendChild(countInput);
     controlsContainer.appendChild(exportButton);
 
-    // Вставляем контейнер в DOM
+    // Insert the container into the DOM
     tabsContainer.prepend(controlsContainer);
 }
 
 /**
- * Использует MutationObserver для отслеживания загрузки интерфейса Slack
- * и вставляет элементы управления.
+ * Uses MutationObserver to track the loading of the Slack interface
+ * and inserts the controls.
  */
 function observeDOM() {
     const observer = new MutationObserver((mutationsList, observer) => {
-        // Проверяем, появился ли целевой элемент для кнопки
+        // Check if the target element for the button has appeared
         const targetContainer = document.querySelector('[data-qa="huddle_channel_header_button"]');
 
         if (targetContainer && !document.getElementById('slack-exporter-controls')) {
@@ -254,14 +216,14 @@ function observeDOM() {
         }
     });
 
-    // Начинаем наблюдение за изменениями в теле документа
+    // Start observing changes in the document body
     observer.observe(document.body, {childList: true, subtree: true});
 
-    // Попытка вставки при первой загрузке
+    // Attempt insertion on first load
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         insertExportButton();
     }
 }
 
-// Запускаем процесс
+// Start the process
 observeDOM();
