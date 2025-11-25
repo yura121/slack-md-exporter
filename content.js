@@ -80,43 +80,11 @@ function cleanAndFormatData(rawHtml) {
 }
 
 function formatToMarkdown(messageText) {
-
-    // 1. БЛОК КОДА (PRE/CODE) -> ```code```
-    messageText = messageText.replace(
-        /<\s*pre[^>]*>\s*<\s*code[^>]*>(.*?)<\s*\/\s*code\s*>\s*<\s*\/\s*pre\s*>/gis,
-        (match, content) => {
-            const codeContent = content.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-            return `\n\`\`\`\n${codeContent.trim()}\n\`\`\`\n`;
-        }
-    );
-
-    // 2. Цитаты (c-message__quote) -> > Цитата
-    messageText = messageText.replace(
-        /<div[^>]*class="[^"]*c-message__quote[^"]*"[^>]*>(.*?)<\/div>/gis,
-        (match, content) => {
-            let quotedText = content.replace(/<\s*p[^>]*>(.*?)<\s*\/\s*p\s*>/gis, '$1\n')
-                .replace(/<br\s*\/?>/gi, '\n')
-                .trim();
-
-            const lines = quotedText.split('\n').map(line => `> ${line.trim()}`);
-            return `\n${lines.join('\n')}\n`;
-        }
-    );
-
-    // 3. Жирный, Курсив, Код в строке
-    messageText = messageText.replace(/<\s*(strong|b)[^>]*>(.*?)<\s*\/\s*(strong|b)\s*>/gi, '**$2**');
-    messageText = messageText.replace(/<\s*(em|i)[^>]*>(.*?)<\s*\/\s*(em|i)\s*>/gi, '*$2*');
-    messageText = messageText.replace(/<\s*code[^>]*>(.*?)<\s*\/\s*code\s*>/gi, '`$1`');
-
-    // 4. Ссылки и Списки
-    messageText = messageText.replace(/<\s*a\s+href="([^"]+)"[^>]*>(.*?)<\s*\/\s*a\s*>/gi, (match, url, text) => {
-        return `[${text.trim()}](${url})`;
-    });
-    messageText = messageText.replace(/<\s*li[^>]*>(.*?)<\s*\/\s*li\s*>/gi, '* $1\n');
-
-    // 5. Перенос строки и очистка тегов
-    messageText = messageText.replace(/<br\s*\/?>/gi, '\n');
+    // перенос строки
+    messageText = messageText.replace(/<br\s*[^>]*\/?>/gi, '\n');
+    // очистка тегов
     messageText = messageText.replace(/<[^>]*>/g, '');
+    // ??
     messageText = messageText.trim().replace(/\n\s*\n/g, '\n\n').replace(/\s\s+/g, ' ');
 
     return messageText;
@@ -130,28 +98,18 @@ function toDate(timestampString) {
     return formatDateTime(dateObject);
 }
 
-/**
- * Форматирует объект Date в строку вида YYYY.MM.DD HH:MM:SS
- * @param {Date} date Объект JavaScript Date
- * @returns {string} Строковое представление даты
- */
 function formatDateTime(date) {
-    // Вспомогательная функция для добавления ведущего нуля
     const pad = (number) => number.toString().padStart(2, '0');
 
     const year = date.getFullYear();
-    // getMonth() возвращает 0-11, поэтому добавляем 1
     const month = pad(date.getMonth() + 1);
     const day = pad(date.getDate());
 
     const hours = pad(date.getHours());
     const minutes = pad(date.getMinutes());
-    const seconds = pad(date.getSeconds());
 
-    // Собираем финальную строку
-    return `${year}.${month}.${day} ${hours}:${minutes}:${seconds}`;
+    return `${year}.${month}.${day} ${hours}:${minutes}`;
 }
-
 
 /**
  * Обработчик клика по кнопке экспорта.
@@ -183,6 +141,7 @@ function handleExportClick() {
 
     let markdownContent = '';
     let exportedCount = 0;
+    let prevFormatedTimestamp = '';
 
     for (const messageEl of lastNMessages) {
         const rawData = extractRawMessageData(messageEl);
@@ -194,11 +153,15 @@ function handleExportClick() {
         rawData.cleanHtml = formatToMarkdown(rawData.rawHtml);
 
         if (rawData.author) {
-            markdownContent += `\n\n**${rawData.author}**\n`;
+            markdownContent += `\n**${rawData.author}**\n`;
         }
 
         if (rawData.timestamp) {
-            markdownContent += `${toDate(rawData.timestamp)}\n`;
+            const currFormatedTimestamp = toDate(rawData.timestamp);
+            if (prevFormatedTimestamp !== currFormatedTimestamp) {
+                markdownContent += `${currFormatedTimestamp}\n`;
+                prevFormatedTimestamp = currFormatedTimestamp;
+            }
         }
 
         markdownContent += `${rawData.cleanHtml}\n`
