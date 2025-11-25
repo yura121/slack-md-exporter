@@ -8,16 +8,15 @@ function extractRawMessageData(messageElement) {
     const authorEl = messageElement.querySelector('[data-qa="message_sender_name"]');
     const author = authorEl ? authorEl.textContent.trim() : null;
 
-    // Timestamp (full)
+    // Timestamp
     const timestampEl = messageElement.querySelector('[data-ts]');
-    let timestamp = 0;
-    if (timestampEl) {
-        timestamp = timestampEl.getAttribute('data-ts');
-    }
+    const timestamp = timestampEl ? timestampEl.getAttribute('data-ts') : 0;
 
     // Raw HTML content
     const textContainer = messageElement.querySelector('[data-qa="message-text"]');
-    if (!textContainer) return null;
+    if (!textContainer) {
+        return null;
+    }
 
     let rawHtml = '';
     const textBlocks = textContainer.querySelectorAll('.p-rich_text_block');
@@ -44,19 +43,111 @@ function extractRawMessageData(messageElement) {
 function formatToMarkdown(messageText) {
     // line break
     messageText = messageText.replace(/<br\s*[^>]*\/?>/gi, '\n');
+
+    // transform blockquote
+    messageText = replaceBlockquotes(messageText);
+
+    // transform lists
+    messageText = transformHtmlList(messageText);
+
     // clear tags
     messageText = messageText.replace(/<[^>]*>/g, '');
 
-    messageText = messageText.trim().replace(/\n\s*\n/g, '\n\n').replace(/\s\s+/g, ' ');
+    // adding an extra new line after a quote
+    messageText = separateQuoteFromText(messageText);
 
     return messageText;
+}
+
+/**
+ * Inserts an extra newline (\n) when transitioning from a quoted line (starting with >) to an unquoted line.
+ * This ensures proper visual separation (an empty line) when exiting a blockquote context in plain text format.
+ * @param {string} text The source text.
+ * @returns {string} The transformed text.
+ */
+function separateQuoteFromText(text) {
+    // Regular expression with the 'gm' (global, multiline) flags:
+    // 1. (^>.*\S): Group 1. Captures a line that starts with '>',
+    //    contains any characters, and ends with a non-whitespace character (\S).
+    // 2. \n: The single newline character we want to duplicate.
+    // 3. (\s*[^>].*): Group 2. Captures the subsequent line:
+    //    allows leading whitespace (\s*), but requires that the first
+    //    non-whitespace character is NOT '>'.
+    const regex = /(^>.*\S)\n(\s*[^>].*)/gm;
+
+    // Replace the matched pattern:
+    // $1: The first line (quoted)
+    // \n\n: Double newline (inserts an empty line)
+    // $2: The second line (unquoted)
+    return text.replace(regex, "$1\n\n$2");
+}
+
+/**
+ * Replaces all HTML <blockquote> tags within an HTML string with their content,
+ * adding the "> " prefix before each line inside the quote.
+ * @param {string} htmlString The source HTML string.
+ * @returns {string} The string with transformed quotes.
+ */
+function replaceBlockquotes(htmlString) {
+    // Regex to capture the entire <blockquote> block and its inner content.
+    // [^>]*: Matches any attributes inside the tag.
+    // ([\s\S]*?): Group 1 captures the content, including newlines (\n).
+    const blockquoteRegex = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi;
+
+    return htmlString.replace(blockquoteRegex, (match, content) => {
+        // Split the content into individual lines by the newline character (\n)
+        const lines = content.split('\n');
+
+        // Prepend the "> " prefix to each line
+        const prefixedLines = lines.map(line => `> ${line.trim()}`);
+
+        // Join the lines back together with newlines (\n)
+        return prefixedLines.join('\n') + '\n';
+    });
+}
+
+/**
+ * Transforms all <ol> structures within an HTML string into text-based numbered lists.
+ * Applies a block quote prefix (>) if the <ol> has data-border="1".
+ * @param {string} htmlString The full HTML content to process.
+ * @returns {string} The processed string with lists converted to text.
+ */
+function transformHtmlList(htmlString) {
+    // Regex to find all OL tags and capture the data-border value and inner content.
+    // Group 1: Captures the data-border value (e.g., "1").
+    // Group 2: Captures all content inside <ol> (<li>...</li>).
+    const olRegex = /<ol[^>]*data-border="(\d)"[^>]*>([\s\S]*?)<\/ol>/gi;
+
+    // Replace the entire OL block using a callback function.
+    // The callback runs for every OL found (due to the 'g' flag).
+    // Return the HTML string with all lists transformed.
+    return htmlString.replace(olRegex, (match, borderValue, listContent) => {
+
+        // Check the condition for block quoting (data-border="1")
+        const hasBorder = borderValue === '1';
+        // Determine the prefix ("> " or "")
+        const prefix = hasBorder ? '> ' : '';
+
+        // Regex to find all LI tags and capture the content.
+        // Group 1: Content inside <li>
+        const liRegex = /<li[^>]*>(.*?)<\/li>/gi;
+        let counter = 0;
+
+        // Replace the LI tags with numbered lines
+        return listContent.replace(liRegex, (match, itemContent) => {
+            counter++;
+            // Return the numbered line with the prefix and trimmed content.
+            // Note: This replaces <li>...</li> with the numbered text.
+            return `${prefix}${counter}. ${itemContent.trim()}\n`;
+        });
+    });
 }
 
 function toDate(timestampString) {
     const floatTimestamp = parseFloat(timestampString);
     const milliseconds = Math.round(floatTimestamp * 1000);
     const dateObject = new Date(milliseconds);
-    
+
     return formatDateTime(dateObject);
 }
 
@@ -138,7 +229,7 @@ function handleExportClick() {
 
     // Create and download the file
     const channelTitle = document.title.replace(' | Slack', '').trim();
-    const header = `# Conversation Export: ${channelTitle} \n\n (Last ${exportedCount} messages)\n\n---\n\n`;
+    const header = `# Conversation Export: ${channelTitle}\n\n---\n`;
     const finalContent = header + markdownContent;
 
     const blob = new Blob([finalContent], {type: 'text/markdown;charset=utf-8'});
@@ -162,12 +253,18 @@ function handleExportClick() {
  */
 function insertExportButton() {
     const targetContainer = document.querySelector('[data-qa="huddle_channel_header_button"]');
-    if (!targetContainer) return;
+    if (!targetContainer) {
+        return;
+    }
 
     const tabsContainer = targetContainer.closest('.p-view_header__actions');
-    if (!tabsContainer) return;
+    if (!tabsContainer) {
+        return;
+    }
 
-    if (document.getElementById('slack-exporter-controls')) return;
+    if (document.getElementById('slack-exporter-controls')) {
+        return;
+    }
 
     // Container for controls
     const controlsContainer = document.createElement('div');
@@ -207,7 +304,7 @@ function insertExportButton() {
  * and inserts the controls.
  */
 function observeDOM() {
-    const observer = new MutationObserver((mutationsList, observer) => {
+    const observer = new MutationObserver(() => {
         // Check if the target element for the button has appeared
         const targetContainer = document.querySelector('[data-qa="huddle_channel_header_button"]');
 
