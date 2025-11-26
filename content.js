@@ -252,12 +252,12 @@ function handleExportClick() {
  * Inserts the input field and export button into the channel header.
  */
 function insertExportButton() {
-    const targetContainer = document.querySelector('[data-qa="huddle_channel_header_button"]');
+    const targetContainer = document.querySelector('.p-view_header_star_action_button');
     if (!targetContainer) {
         return;
     }
 
-    const tabsContainer = targetContainer.closest('.p-view_header__actions');
+    const tabsContainer = targetContainer.parentElement.querySelector('.p-view_header__actions');
     if (!tabsContainer) {
         return;
     }
@@ -306,7 +306,7 @@ function insertExportButton() {
 function observeDOM() {
     const observer = new MutationObserver(() => {
         // Check if the target element for the button has appeared
-        const targetContainer = document.querySelector('[data-qa="huddle_channel_header_button"]');
+        const targetContainer = document.querySelector('.p-view_header_star_action_button');
 
         if (targetContainer && !document.getElementById('slack-exporter-controls')) {
             insertExportButton();
