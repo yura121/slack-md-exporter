@@ -1,0 +1,14 @@
+{
+    "scripts": {
+        "dev:internal": "vite",
+        "dev": "nodemon --config nodemon.json",
+        "build": "vite build && rimraf dist/.vite && node clean-manifest.js"
+    },
+    "type": "module",
+    "devDependencies": {
+        "@crxjs/vite-plugin": "^2.2.1",
+        "nodemon": "^3.1.11",
+        "rimraf": "^6.1.2",
+        "vite": "^7.2.4"
+    }
+}

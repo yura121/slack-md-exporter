@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Slack Markdown Exporter",
     "version": "1.0",
-    "description": "Экспортирует заданное количество последних сообщений Slack-диалога в формате Markdown с сохранением форматирования.",
+    "description": "Exports a specified number of the latest Slack messages from a dialogue into Markdown format, keeping the formatting.",
     "icons": {
         "16": "icon.png",
         "48": "icon.png",
@@ -15,9 +15,6 @@
             ],
             "js": [
                 "content.js"
-            ],
-            "css": [
-                "style.css"
             ]
         }
     ],
@@ -25,6 +22,7 @@
         "activeTab"
     ],
     "host_permissions": [
-        "https://app.slack.com/*"
+        "https://app.slack.com/*",
+        "http://localhost:5173/*"
     ]
 }

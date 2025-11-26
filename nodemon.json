@@ -1,0 +1,8 @@
+{
+    "watch": [
+        "./content.js"
+    ],
+    "ext": "js",
+    "exec": "npm run dev:internal",
+    "delay": 100
+}

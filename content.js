@@ -1,3 +1,5 @@
+import './style.css';
+
 /**
  * Extracts raw message data: author, timestamp, and full HTML content.
  * @param {HTMLElement} messageElement The message element.
